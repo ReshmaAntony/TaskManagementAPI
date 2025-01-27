@@ -1,0 +1,95 @@
+# Task Management API
+
+This is a RESTful API built with Spring Boot to manage tasks, users, and authentication. It uses JWT (JSON Web Tokens) for secure access.
+
+## Data Model
+
+### User
+
+*   **userId (Long):** Primary key for the user, auto-generated.
+*   **username (String):** User's username (used as login).
+*   **password (String):**  Hashed password using BCrypt.
+*   **email (String):** User's email, it is unique for every user.
+*   **role (Enum):**  An enum representing the user's role (`USER` or `ADMIN`).
+
+  **Reasoning**:
+    * The fields `username` and `password` are required to authenticate the users, while the field `email` is also used to identify them uniquely.
+    * The `role` allows us to provide different permissions based on the type of user (admin or regular user).
+    *   The `userId` field allows for proper identification of the users on the database.
+
+### TaskEntity
+
+*   **taskId (Long):** Primary key of the task, it is auto-generated.
+*   **taskName (String):** Name of the task.
+*   **status (Enum):** Current status of the task (e.g., `PENDING`, `IN_PROGRESS`, `COMPLETED`).
+*   **description (String):** Detailed description of the task.
+*  **createdBy (Long):** Id of the user that created the task.
+*   **createdAt (LocalDateTime):** Date and time when the task was created.
+*   **updatedAt (LocalDateTime):** Date and time when the task was last updated.
+*    **user (User):** A many-to-one relation to the user that owns the task.
+
+  **Reasoning**:
+    *   The tasks have a primary key used to uniquely identify them, as well as name, status and description.
+    *    They also have creation and update dates to track when the task was modified, and also a user that can be used to restrict permissions or to track who created a task.
+
+## How to Run the Project
+
+### Prerequisites
+
+*   Java Development Kit (JDK) 17 or higher.
+*   Maven.
+
+### Steps
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone <repository_url>
+    cd taskmanagement-api
+    ```
+      Replace `<repository_url>` with your actual repository link.
+2.  **Build the project:**
+
+    *   Using Maven:
+        ```bash
+        mvn clean install
+        ```
+   
+3.  **Run the application:**
+    *   Using Maven:
+
+        ```bash
+        mvn spring-boot:run
+        ```
+    
+
+4. **Access API Documentation:**
+     * The API documentation can be viewed with swagger at `/swagger-ui/index.html`.
+5.  **Test the API**: You can now use a tool such as Postman to make requests to the specified endpoints. You will need to first sign up with a new user (or get the JWT token by logging in) and then using the token in the `Authorization` header.
+
+## Key Technologies Used
+
+*   **Spring Boot:** For building the REST API and handling dependency injection.
+*   **Spring Security:** For handling authentication and authorization using JWT tokens.
+*   **H2 Database:** For in-memory data storage (for development and testing).
+*   **Lombok:** To reduce boilerplate code.
+*  **jJWT:** For JSON Web Tokens (JWT).
+*  **Java 17**: This project needs Java 17 or greater to work correctly.
+
+## Endpoints
+
+* **POST** `/v1/api/auth/signup`: Creates a new user.
+* **POST** `/v1/api/auth/login`: Logs a user and returns a JWT token.
+* **GET** `/v1/api/tasks/retrieve-task/{id}`: Retrieves a task by its id.
+*  **POST** `/v1/api/tasks/create-task`: Creates a new task (you will need a JWT for this request).
+* * **GET** `/v1/api/tasks/get-task`: Retrieves a task by its status.
+* **PUT** `/v1/api/tasks/update-task/{id}`"Updates a task by its id.
+* **DELETE** `/v1/api/tasks/delete-task/{id}:`Deletes a task by its id and only admin can do that.
+
+## Troubleshooting
+
+*   If you have problems with dependencies, try cleaning and rebuilding the project.
+*   Verify that you have Java 17+ in your classpath.
+* If you have database connection errors, double check your settings in the `application.properties` file.
+
+

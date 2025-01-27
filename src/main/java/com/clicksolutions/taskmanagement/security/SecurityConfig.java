@@ -3,7 +3,6 @@ package com.clicksolutions.taskmanagement.security;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -23,36 +22,48 @@ import com.clicksolutions.taskmanagement.service.UserService;
 import com.clicksolutions.taskmanagement.util.JwtAuthenticationFilter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
-	
-	@Autowired
+
+    @Autowired
     JwtAuthenticationFilter jwtAuthenticationFilter;
-    
+
     @Autowired
     UserService userService;
 
-	
     @Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
-		http
-		.csrf(AbstractHttpConfigurer::disable)
-		.authorizeHttpRequests(
-				request -> request.requestMatchers(HttpMethod.POST,"/v1/api/tasks/create-task").permitAll()
-				.requestMatchers("/api/user").hasAnyAuthority(Role.USER.name())
-				.anyRequest().authenticated())
-		.sessionManagement(manager -> manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-		.authenticationProvider(authenticationProvider()).addFilterBefore(jwtAuthenticationFilter, 
-				UsernamePasswordAuthenticationFilter.class
-				);
-		return http.build();	
-	}
-	
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        log.info("Configuring security filter chain...");
+        
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(request -> {
+                log.info("Setting up authorization rules...");
+                
+                request.requestMatchers("/v1/api/auth/**").permitAll();
+                request.requestMatchers("/v1/api/tasks/**").permitAll();
+                request.requestMatchers("/api/user").hasAnyAuthority(Role.USER.name());
+                request.anyRequest().authenticated();
+            })
+            .sessionManagement(manager -> {
+                log.info("Configuring stateless session management...");
+                manager.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+            })
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        log.info("Security filter chain configured successfully.");
+        return http.build();
+    }
+
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
+        log.info("Configuring web security to ignore specific paths...");
         return (web) -> web.ignoring()
             .requestMatchers(
                 "/resources/**",
@@ -65,24 +76,26 @@ public class SecurityConfig {
                 "/api-docs/**"
             );
     }
-	@Bean
-	public AuthenticationProvider authenticationProvider() {
-		
-		DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
-		
-		authenticationProvider.setUserDetailsService(userService.userDetailsService());
-		authenticationProvider.setPasswordEncoder(passwordEncoder());
-		return authenticationProvider;
-	}
-	
-	@Bean
-	public PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
-	}
-	
-	@Bean
-	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception{
-		return config.getAuthenticationManager();
-	}
 
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        log.info("Creating DaoAuthenticationProvider...");
+        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
+        authenticationProvider.setUserDetailsService(userService.userDetailsService());
+        authenticationProvider.setPasswordEncoder(passwordEncoder());
+        log.info("DaoAuthenticationProvider configured successfully.");
+        return authenticationProvider;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        log.info("Configuring BCryptPasswordEncoder...");
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        log.info("Retrieving AuthenticationManager from configuration...");
+        return config.getAuthenticationManager();
+    }
 }

@@ -1,5 +1,6 @@
 package com.clicksolutions.taskmanagement.dto;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 import com.clicksolutions.taskmanagement.entity.Status;
@@ -11,7 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
-@SuppressWarnings("unused")
+
 public class Task {
 	
 
@@ -19,7 +20,7 @@ public class Task {
 	private String taskName;
 	private Status status;
 	private String description;
-	private long createdBy;
+	private String createdBy;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 

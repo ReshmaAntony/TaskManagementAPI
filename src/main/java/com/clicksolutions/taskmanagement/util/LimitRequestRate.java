@@ -4,64 +4,74 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-	public class LimitRequestRate {
-		
-	    private final int maxRequests;
-	    private final long timeWindowMs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-	    private final ConcurrentHashMap<String, RateLimitInfo> clientRequests = new ConcurrentHashMap<>();
+public class LimitRequestRate {
 
-	    public LimitRequestRate(int maxRequests, long timeWindowMs) {
-	        this.maxRequests = maxRequests;
-	        this.timeWindowMs = timeWindowMs;
-	    }
+    private static final Logger logger = LoggerFactory.getLogger(LimitRequestRate.class);
 
-	    public boolean isAllowed(String clientId) {
-	        Instant now = Instant.now();
-	        clientRequests.computeIfAbsent(clientId, k -> new RateLimitInfo(maxRequests, now.toEpochMilli() + timeWindowMs));
+    private final int maxRequests;
+    private final long timeWindowMs;
 
-	        RateLimitInfo rateLimitInfo = clientRequests.get(clientId);
+    private final ConcurrentHashMap<String, RateLimitInfo> clientRequests = new ConcurrentHashMap<>();
 
-	        synchronized (rateLimitInfo) {
-	            if (now.toEpochMilli() > rateLimitInfo.getResetTime()) {
-	                rateLimitInfo.reset(maxRequests, now.toEpochMilli() + timeWindowMs);
-	            }
+    public LimitRequestRate(int maxRequests, long timeWindowMs) {
+        this.maxRequests = maxRequests;
+        this.timeWindowMs = timeWindowMs;
+        logger.info("Rate limiter initialized with maxRequests={} and timeWindowMs={}", maxRequests, timeWindowMs);
+    }
 
-	            if (rateLimitInfo.getRemainingRequests() > 0) {
-	                rateLimitInfo.decrementRequests();
-	                return true;
-	            } else {
-	                return false;
-	            }
-	        }
-	    }
+    public boolean isAllowed(String clientId) {
+        Instant now = Instant.now();
+        clientRequests.computeIfAbsent(clientId, k -> {
+            logger.debug("New client added to rate limiter: {}", clientId);
+            return new RateLimitInfo(maxRequests, now.toEpochMilli() + timeWindowMs);
+        });
 
-	    private static class RateLimitInfo {
-	        private AtomicInteger remainingRequests;
-	        private long resetTime;
+        RateLimitInfo rateLimitInfo = clientRequests.get(clientId);
 
-	        public RateLimitInfo(int maxRequests, long resetTime) {
-	            this.remainingRequests = new AtomicInteger(maxRequests);
-	            this.resetTime = resetTime;
-	        }
+        synchronized (rateLimitInfo) {
+            if (now.toEpochMilli() > rateLimitInfo.getResetTime()) {
+                logger.info("Resetting rate limit for clientId={} at {}", clientId, now);
+                rateLimitInfo.reset(maxRequests, now.toEpochMilli() + timeWindowMs);
+            }
 
-	        public int getRemainingRequests() {
-	            return remainingRequests.get();
-	        }
+            if (rateLimitInfo.getRemainingRequests() > 0) {
+                rateLimitInfo.decrementRequests();
+                logger.debug("Request allowed for clientId={}, remainingRequests={}", clientId, rateLimitInfo.getRemainingRequests());
+                return true;
+            } else {
+                logger.warn("Request denied for clientId={}, rate limit exceeded. RemainingRequests={}", clientId, rateLimitInfo.getRemainingRequests());
+                return false;
+            }
+        }
+    }
 
-	        public long getResetTime() {
-	            return resetTime;
-	        }
+    private static class RateLimitInfo {
+        private AtomicInteger remainingRequests;
+        private long resetTime;
 
-	        public void decrementRequests() {
-	            remainingRequests.decrementAndGet();
-	        }
+        public RateLimitInfo(int maxRequests, long resetTime) {
+            this.remainingRequests = new AtomicInteger(maxRequests);
+            this.resetTime = resetTime;
+        }
 
-	        public void reset(int maxRequests, long resetTime) {
-	            this.remainingRequests.set(maxRequests);
-	            this.resetTime = resetTime;
-	        }
-	    }
-	}
+        public int getRemainingRequests() {
+            return remainingRequests.get();
+        }
 
+        public long getResetTime() {
+            return resetTime;
+        }
 
+        public void decrementRequests() {
+            remainingRequests.decrementAndGet();
+        }
+
+        public void reset(int maxRequests, long resetTime) {
+            this.remainingRequests.set(maxRequests);
+            this.resetTime = resetTime;
+        }
+    }
+}

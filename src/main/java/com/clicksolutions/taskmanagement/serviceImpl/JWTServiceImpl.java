@@ -17,61 +17,92 @@ import com.clicksolutions.taskmanagement.service.JWTService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-public class JWTServiceImpl implements JWTService{
-	
-	@Autowired
-	private UserRepository userRepository;
-	
-	 @Value("${jwt.secret}") 
-	 private String secretKey;
-	
+@Slf4j
+public class JWTServiceImpl implements JWTService {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    @Override
     public String generateToken(UserDetails userDetails) {
-	   String email = userDetails.getUsername();
-	   User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFound("usernotfound"));
-		return Jwts.builder().setSubject(userDetails.getUsername())
-				.claim("userId", user.getUserId())
-				.claim("username", user.getUsername())
-				.setIssuedAt(new Date(System.currentTimeMillis()))
-				.setExpiration(new Date(System.currentTimeMillis() +604800000))
-				.signWith(getSignkey(), SignatureAlgorithm.HS256)
-				.compact();
-	}
+        log.info("Generating token for user: {}", userDetails.getUsername());
+        String username = userDetails.getUsername();
+        User user = userRepository.findByUsername(username).orElseThrow(() -> {
+            log.error("User not found for email: {}", username);
+            return new UserNotFound("User not found");
+        });
 
-	@Override
-	public String extractUsername(String token) {
-		
-		return extractClaim(token, Claims::getSubject);
-	}
-	
-	private <T> T extractClaim(String token, Function<Claims,T> claimsResolver) {
-		final Claims claims = extractAallClaim(token);
-		return claimsResolver.apply(claims);
-		
-	}
-	 private Key getSignkey() {
-		 System.out.println();
-	        byte[] key = Decoders.BASE64.decode(secretKey);
-	        System.out.println("secretKey" +secretKey );
-	        System.out.println("key" +key );
-	        return Keys.hmacShaKeyFor(key);
-		}
-	
-	private Claims extractAallClaim(String token) {
-		return Jwts.parserBuilder().setSigningKey(getSignkey()).build().parseClaimsJws(token).getBody();
-	}
+        String token = Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .claim("userId", user.getUserId())
+                .claim("username", user.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 604800000)) // 7 days
+                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .compact();
 
-	@Override
-	public boolean isTokenValid(String token, UserDetails userDetails) {
-		final String username = extractUsername(token);
-		return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-	}
-	
-	private boolean isTokenExpired(String token) {
-		return extractClaim(token, Claims::getExpiration).before(new Date());
-	}
+        log.info("Token generated successfully for user: {}", userDetails.getUsername());
+        return token;
+    }
 
+    @Override
+    public String extractUsername(String token) {
+        log.debug("Extracting username from token");
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        log.debug("Extracting claim from token");
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Key getSignKey() {
+        log.debug("Retrieving signing key");
+        try {
+            log.debug("Using secret key: {}", secretKey);
+            return Keys.hmacShaKeyFor(secretKey.getBytes());
+        } catch (Exception e) {
+            log.error("Error creating signing key: {}", e.getMessage());
+            throw new RuntimeException("Failed to retrieve signing key");
+        }
+    }
+
+    private Claims extractAllClaims(String token) {
+        log.debug("Extracting all claims from token");
+        return Jwts.parserBuilder()
+                .setSigningKey(getSignKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    @Override
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        log.info("Validating token for user: {}", userDetails.getUsername());
+        final String username = extractUsername(token);
+        boolean isValid = (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        if (isValid) {
+            log.info("Token is valid for user: {}", userDetails.getUsername());
+        } else {
+            log.warn("Token is invalid or expired for user: {}", userDetails.getUsername());
+        }
+        return isValid;
+    }
+
+    private boolean isTokenExpired(String token) {
+        log.debug("Checking if token is expired");
+        boolean isExpired = extractClaim(token, Claims::getExpiration).before(new Date());
+        if (isExpired) {
+            log.warn("Token has expired");
+        }
+        return isExpired;
+    }
 }

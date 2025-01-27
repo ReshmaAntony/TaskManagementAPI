@@ -17,97 +17,128 @@ import com.clicksolutions.taskmanagement.exception.TaskNotFoundException;
 import com.clicksolutions.taskmanagement.repository.TaskRepository;
 import com.clicksolutions.taskmanagement.service.TaskService;
 
-
 @Service
 public class TaskServiceImpl implements TaskService {
-	
-	 private static final Logger logger = LoggerFactory.getLogger(TaskService.class);
 
-	@Autowired
-	TaskRepository taskRepository;
+    private static final Logger logger = LoggerFactory.getLogger(TaskServiceImpl.class);
 
-	public Task createTask(Task createTaskRequest) {
+    @Autowired
+    TaskRepository taskRepository;
 
-		TaskEntity createTaskResponse = new TaskEntity();
-		BeanUtils.copyProperties(createTaskRequest, createTaskResponse);
-		createTaskResponse = taskRepository.save(createTaskResponse);
-		BeanUtils.copyProperties(createTaskResponse, createTaskRequest);
-		return createTaskRequest;
-	}
+    @Override
+    public Task createTask(Task createTaskRequest) {
+        logger.info("Creating a new task: {}", createTaskRequest);
 
-	public Task getTaskById(long id) {
-		
-		 if (id <= 0) {
-	            logger.error("Invalid Task ID: {}", id);
-	            throw new IllegalArgumentException("Invalid Task ID");
-	        }
-		TaskEntity getTaskByIdRepoResponse = new TaskEntity();
-		getTaskByIdRepoResponse =taskRepository.findById(id) .orElseThrow(() -> new
-		  TaskNotFoundException("Task not found"));
-		 Task getTaskByIdResponse = new Task();
-		 BeanUtils.copyProperties(getTaskByIdRepoResponse, getTaskByIdResponse);
-			return getTaskByIdResponse;
-		 
-	}
+        TaskEntity createTaskResponse = new TaskEntity();
+      //  BeanUtils.copyProperties(createTaskRequest, createTaskResponse);
+      //  logger.info("Task created successfully with ID: {}", createTaskResponse.getId());
+        createTaskResponse.setId(createTaskRequest.getTaskId());
+        createTaskResponse.setTaskName(createTaskRequest.getTaskName());
+        createTaskResponse.setDescription(createTaskRequest.getDescription());
+        createTaskResponse.setCreatedAt(createTaskRequest.getCreatedAt());
+        createTaskResponse.setCreatedBy(createTaskRequest.getCreatedBy());
+        createTaskResponse.setUpdatedAt(createTaskRequest.getUpdatedAt());
+        createTaskResponse.setStatus(createTaskRequest.getStatus());
+        
+        createTaskResponse = taskRepository.save(createTaskResponse);
+        
+        Task result = new Task();
+        logger.info("Task created successfully with ID: {}here is the response from repo", result);
+        
+        result.setCreatedAt(createTaskResponse.getCreatedAt());
+        result.setUpdatedAt(createTaskResponse.getUpdatedAt());
+        result.setCreatedBy(createTaskResponse.getCreatedBy());
+        result.setDescription(createTaskResponse.getCreatedBy());
+        result.setTaskId(createTaskResponse.getId());
+        result.setTaskName(createTaskResponse.getTaskName());
+        result.setStatus(createTaskResponse.getStatus());
 
-	public List<Task> getTasksByStatus(String status) {
+        logger.info("Task created successfully with ID: {}", createTaskResponse.getId());
+        return result;
+    }
 
-		Status taskStatus = status != null ? Status.valueOf(status.toUpperCase()) : null;
+    @Override
+    public Task getTaskById(long id) {
+        if (id <= 0) {
+            logger.error("Invalid Task ID: {}", id);
+            throw new IllegalArgumentException("Invalid Task ID");
+        }
 
-		// Fetch tasks from repository
-		List<TaskEntity> tasksRepoResponse = (taskStatus != null) ? taskRepository.findByStatus(taskStatus)
-				: taskRepository.findAll();
-		
+        logger.info("Fetching task by ID: {}", id);
+        TaskEntity getTaskByIdRepoResponse = taskRepository.findById(id)
+                .orElseThrow(() -> {
+                    logger.error("Task not found with ID: {}", id);
+                    return new TaskNotFoundException("Task not found");
+                });
 
-		
-		  // Convert to DTO 
-		return tasksRepoResponse.stream().map(task -> new Task
-				(task.getId(), 
-				 task.getTaskName(), 
-				 task.getStatus(),
-		         task.getDescription(), 
-		         task.getCreatedBy(), 
-		         task.getCreatedAt(), 
-		         task.getUpdatedAt()))
-				.collect(Collectors.toList());
-		 
-	}
+        Task getTaskByIdResponse = new Task();
+        BeanUtils.copyProperties(getTaskByIdRepoResponse, getTaskByIdResponse);
 
-	public Task updateTask(long id, Task updateTaskRequest) {
+        logger.info("Task fetched successfully: {}", getTaskByIdResponse);
+        return getTaskByIdResponse;
+    }
 
-		
-		  Task updatedTaskResponse = new Task(); Optional<TaskEntity> existingTask =
-		  taskRepository.findById(id);
-		  
-		  if (existingTask.isPresent()) { // Task exists, retrieving it 
-			  TaskEntity taskRepoReponse = existingTask.get();
-		  
-		  // Performing the update logic here
-		  taskRepoReponse.setTaskName(updateTaskRequest.getTaskName());
-		  taskRepoReponse.setDescription(updateTaskRequest.getDescription());
-		  taskRepoReponse.setStatus(updateTaskRequest.getStatus());
-		  
-		  // Saving the updated task to Repository
-		  taskRepository.save(taskRepoReponse);
-		  
-		  //copying the entity object properties to dto object
-		  BeanUtils.copyProperties(taskRepoReponse, updatedTaskResponse); return
-		  updatedTaskResponse; } else { // If the task with the given ID does not exist
-		  throw new TaskNotFoundException("Task with id " + id + " not found"); }
-		 
-	}
+    @Override
+    public List<Task> getTasksByStatus(String status) {
+        logger.info("Fetching tasks by status: {}", status);
 
-	
-	  public void deleteTask(Long id)throws TaskNotFoundException {
-	  
-	  
-	  // Checking if the task exists 
-		  if (!taskRepository.existsById(id)) { throw
-	  new TaskNotFoundException("Task with id " + id + " not found"); }
-	  
-	  
-	  // Deleting the task based on the id 
-		  taskRepository.deleteById(id); }
-	 
+        Status taskStatus = (status != null) ? Status.valueOf(status.toUpperCase()) : null;
 
+        List<TaskEntity> tasksRepoResponse = (taskStatus != null) 
+                ? taskRepository.findByStatus(taskStatus) 
+                : taskRepository.findAll();
+
+        logger.info("Fetched {} task(s) from the repository", tasksRepoResponse.size());
+
+        return tasksRepoResponse.stream()
+                .map(task -> new Task(
+                        task.getId(),
+                        task.getTaskName(),
+                        task.getStatus(),
+                        task.getDescription(),
+                        task.getCreatedBy(),
+                        task.getCreatedAt(),
+                        task.getUpdatedAt()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Task updateTask(long id, Task updateTaskRequest) {
+        logger.info("Updating task with ID: {}", id);
+
+        Optional<TaskEntity> existingTask = taskRepository.findById(id);
+
+        if (existingTask.isPresent()) {
+            TaskEntity taskRepoResponse = existingTask.get();
+
+            logger.info("Task found with ID: {}, performing updates", id);
+            taskRepoResponse.setTaskName(updateTaskRequest.getTaskName());
+            taskRepoResponse.setDescription(updateTaskRequest.getDescription());
+            taskRepoResponse.setStatus(updateTaskRequest.getStatus());
+
+            taskRepository.save(taskRepoResponse);
+
+            Task updatedTaskResponse = new Task();
+            BeanUtils.copyProperties(taskRepoResponse, updatedTaskResponse);
+
+            logger.info("Task updated successfully: {}", updatedTaskResponse);
+            return updatedTaskResponse;
+        } else {
+            logger.error("Task with ID: {} not found", id);
+            throw new TaskNotFoundException("Task with id " + id + " not found");
+        }
+    }
+
+    @Override
+    public void deleteTask(Long id) throws TaskNotFoundException {
+        logger.info("Deleting task with ID: {}", id);
+
+        if (!taskRepository.existsById(id)) {
+            logger.error("Task with ID: {} not found", id);
+            throw new TaskNotFoundException("Task with id " + id + " not found");
+        }
+
+        taskRepository.deleteById(id);
+        logger.info("Task with ID: {} deleted successfully", id);
+    }
 }

@@ -1,12 +1,11 @@
 package com.clicksolutions.taskmanagement.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+
+@Data
 public class LoginDto {
 	
-	private String email;
+	private String username;
 	private String password;
 }

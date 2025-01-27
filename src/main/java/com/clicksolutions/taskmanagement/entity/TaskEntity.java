@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 public class TaskEntity {
 	
 	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    //@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 	
 	private String taskName;
@@ -39,7 +39,7 @@ public class TaskEntity {
 	
 	private String description;
 	
-	private long createdBy;
+	private String createdBy;
 	
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm")
 	@Column(nullable = false, updatable = false)
@@ -50,7 +50,6 @@ public class TaskEntity {
 	private LocalDateTime updatedAt;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "users_id")
 	private User user;
 
 
